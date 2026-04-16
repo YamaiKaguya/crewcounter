@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Schedule Parser | Obsidian Edition</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<div class="container">
+  <header id="pageHeader">
+    <h1>Schedule Extractor</h1>
+    <p>Efficiently convert screenshots to structured data</p>
+  </header>
+
+  <div class="card" id="uploadCard">
+    <div class="upload-zone">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+      </svg>
+      <p style="font-size: 15px;">Drop files or click to upload</p>
+      <input type="file" id="imageInput" accept="image/*" multiple />
+    </div>
+
+    <div id="fileIndicator"></div>
+
+    <div class="actions">
+      <div id="status" style="margin-bottom: 15px; color: var(--primary); font-size: 14px;"></div>
+      <button id="uploadBtn">ANALYZE FILES</button>
+    </div>
+  </div>
+
+  <div id="resultsWrapper" class="hidden">
+    <div class="results-grid">
+      <div class="table-card">
+        <table id="tableLeft">
+          <thead><tr><th>Staff Name</th><th>Shifts</th><th>Hrs</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="table-card">
+        <table id="tableRight">
+          <thead><tr><th>Staff Name</th><th>Shifts</th><th>Hrs</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <div style="text-align:center;">
+      <button class="btn-reset" onclick="resetUI()">← NEW BATCH</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const input = document.getElementById('imageInput');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const uploadCard = document.getElementById('uploadCard');
+  const resultsWrapper = document.getElementById('resultsWrapper');
+  const pageHeader = document.getElementById('pageHeader');
+  const status = document.getElementById('status');
+  const fileIndicator = document.getElementById('fileIndicator');
+
+  // Logic for File Pills (Indicator)
+  input.addEventListener('change', () => {
+    fileIndicator.innerHTML = '';
+    const files = Array.from(input.files);
+    
+    if (files.length > 0) {
+      files.forEach(file => {
+        const pill = document.createElement('div');
+        pill.className = 'file-pill';
+        pill.innerHTML = `
+          <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          ${file.name}
+        `;
+        fileIndicator.appendChild(pill);
+      });
+      status.textContent = `${files.length} file(s) ready.`;
+    } else {
+      status.textContent = "";
+    }
+  });
+
+  uploadBtn.addEventListener('click', async () => {
+    if (!input.files.length) return status.textContent = "Select at least one image.";
+
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = "PROCESSING...";
+
+    const formData = new FormData();
+    for (const file of input.files) formData.append('images', file);
+
+    try {
+      const res = await fetch('http://127.0.0.1:8000/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      const results = data.results || [];
+
+      if (results.length > 0) {
+        const half = Math.ceil(results.length / 2);
+        const renderRows = (items) => items.map(item => `
+          <tr>
+            <td><strong>${item.name || 'Unknown'}</strong></td>
+            <td>${item.schedule_count ?? 0}</td>
+            <td><span class="badge-hours">${item.hours ?? 0}</span></td>
+          </tr>
+        `).join('');
+
+        document.querySelector('#tableLeft tbody').innerHTML = renderRows(results.slice(0, half));
+        document.querySelector('#tableRight tbody').innerHTML = renderRows(results.slice(half));
+
+        uploadCard.classList.add('hidden');
+        resultsWrapper.classList.remove('hidden');
+        status.textContent = "";
+      } else {
+        status.textContent = "No schedules found in these images.";
+      }
+    } catch (e) {
+      status.textContent = "Backend connection error.";
+    } finally {
+      uploadBtn.disabled = false;
+      uploadBtn.textContent = "ANALYZE FILES";
+    }
+  });
+
+  function resetUI() {
+    input.value = '';
+    fileIndicator.innerHTML = '';
+    uploadCard.classList.remove('hidden');
+    resultsWrapper.classList.add('hidden');
+    status.textContent = "";
+  }
+</script>
+
+</body>
+</html>
