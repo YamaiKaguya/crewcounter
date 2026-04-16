@@ -2,7 +2,8 @@
 
 ## Steps
 
-1. Install the requirements listed in `requirements.txt`.
+1. Install the requirements listed in `requirements.txt`. dont forget to run `python -m uvicorn main:app --reload`
+
 
 2. Process the image using https://jpgtoexcel.com/.
 
