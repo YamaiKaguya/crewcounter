@@ -1,15 +1,31 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from PIL import Image
 from io import BytesIO
 import pytesseract
 import re
 from collections import defaultdict
-
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+from pathlib import Path
 
 app = FastAPI()
 
+# set root to the current file's directory
+ROOT_DIR = Path(__file__).parent.absolute()
+
+# mount static files from root (where index.html lives)
+app.mount("/static", StaticFiles(directory=ROOT_DIR), name="static")
+
+# serve index.html at /
+@app.get("/")
+def read_index():
+    index_path = ROOT_DIR / "index.html"
+    if not index_path.exists():
+        return {"detail": "index.html not found in root"}
+    return FileResponse(index_path)
+
+# middleware and your OCR / upload logic below (same as before)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,6 +33,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# normalize_name + extract_matches + @app.post("/upload") unchanged
 
 def normalize_name(line: str) -> str:
     line = line.upper()
