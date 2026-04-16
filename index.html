@@ -61,11 +61,10 @@
   const status = document.getElementById('status');
   const fileIndicator = document.getElementById('fileIndicator');
 
-  // Logic for File Pills (Indicator)
   input.addEventListener('change', () => {
     fileIndicator.innerHTML = '';
     const files = Array.from(input.files);
-    
+
     if (files.length > 0) {
       files.forEach(file => {
         const pill = document.createElement('div');

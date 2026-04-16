@@ -1,31 +1,14 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from PIL import Image
 from io import BytesIO
 import pytesseract
 import re
 from collections import defaultdict
-from pathlib import Path
+
 
 app = FastAPI()
 
-# set root to the current file's directory
-ROOT_DIR = Path(__file__).parent.absolute()
-
-# mount static files from root (where index.html lives)
-app.mount("/static", StaticFiles(directory=ROOT_DIR), name="static")
-
-# serve index.html at /
-@app.get("/")
-def read_index():
-    index_path = ROOT_DIR / "index.html"
-    if not index_path.exists():
-        return {"detail": "index.html not found in root"}
-    return FileResponse(index_path)
-
-# middleware and your OCR / upload logic below (same as before)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -34,7 +17,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# normalize_name + extract_matches + @app.post("/upload") unchanged
 
 def normalize_name(line: str) -> str:
     line = line.upper()
@@ -62,6 +44,7 @@ def normalize_name(line: str) -> str:
     compact = line.replace(" ", "")
     return replacements.get(compact, line)
 
+
 def extract_matches(text: str):
     lines = [line.strip() for line in text.splitlines() if line.strip()]
     matches = []
@@ -72,7 +55,8 @@ def extract_matches(text: str):
             name = normalize_name(name_part)
 
             hours = None
-            after_date = re.split(r'19/02|1902', line, maxsplit=1)[1] if re.split(r'19/02|1902', line, maxsplit=1)[1:] else ""
+            after_date_match = re.split(r'19/02|1902', line, maxsplit=1)
+            after_date = after_date_match[1] if len(after_date_match) > 1 else ""
             m = re.search(r'\b(50|60|70|80|5|6|7|8|5\.0|6\.0|7\.0|8\.0)\b', after_date)
             if m:
                 val = m.group(1)
@@ -90,6 +74,7 @@ def extract_matches(text: str):
             matches.append((name, hours))
 
     return matches
+
 
 @app.post("/upload")
 async def upload_images(images: list[UploadFile] = File(...)):
