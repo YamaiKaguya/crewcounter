@@ -94,7 +94,7 @@
     for (const file of input.files) formData.append('images', file);
 
     try {
-      const res = await fetch('http://127.0.0.1:8000/upload', { method: 'POST', body: formData });
+      const res = await fetch('/upload', { method: 'POST', body: formData });
       const data = await res.json();
       const results = data.results || [];
 
