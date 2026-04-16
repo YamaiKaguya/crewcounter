@@ -20,12 +20,20 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
       </svg>
       <p style="font-size: 15px;">Drop files or click to upload</p>
-      <input title="input" type="file" id="imageInput" accept="image/*" multiple />
+      <input type="file" id="imageInput" accept="image/*" multiple />
     </div>
 
     <div id="fileIndicator"></div>
 
     <div class="actions">
+      <div class="multiplier-container">
+        <label for="multiplierInput">Hourly rate</label>
+        <div class="input-wrapper">
+          <span>₱</span>
+          <input type="number" id="multiplierInput" min="0" value="88" step="0.5" />
+        </div>
+      </div>
+
       <div id="status" style="margin-bottom: 15px; color: var(--primary); font-size: 14px;"></div>
       <button id="uploadBtn">ANALYZE FILES</button>
     </div>
@@ -35,13 +43,13 @@
     <div class="results-grid">
       <div class="table-card">
         <table id="tableLeft">
-          <thead><tr><th>Staff Name</th><th>Shifts</th><th>Hrs</th></tr></thead>
+          <thead><tr><th>Staff Name</th><th>Shifts</th><th>Hrs</th><th>Salary</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
       <div class="table-card">
         <table id="tableRight">
-          <thead><tr><th>Staff Name</th><th>Shifts</th><th>Hrs</th></tr></thead>
+          <thead><tr><th>Staff Name</th><th>Shifts</th><th>Hrs</th><th>Salary</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>
@@ -57,34 +65,27 @@
   const uploadBtn = document.getElementById('uploadBtn');
   const uploadCard = document.getElementById('uploadCard');
   const resultsWrapper = document.getElementById('resultsWrapper');
-  const pageHeader = document.getElementById('pageHeader');
   const status = document.getElementById('status');
   const fileIndicator = document.getElementById('fileIndicator');
+  const multiplierInput = document.getElementById("multiplierInput");
 
+  // Show selected files as pills
   input.addEventListener('change', () => {
     fileIndicator.innerHTML = '';
     const files = Array.from(input.files);
-
     if (files.length > 0) {
       files.forEach(file => {
         const pill = document.createElement('div');
         pill.className = 'file-pill';
-        pill.innerHTML = `
-          <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          ${file.name}
-        `;
+        pill.innerHTML = `<svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg> ${file.name}`;
         fileIndicator.appendChild(pill);
       });
       status.textContent = `${files.length} file(s) ready.`;
-    } else {
-      status.textContent = "";
     }
   });
 
   uploadBtn.addEventListener('click', async () => {
-    if (!input.files.length) return status.textContent = "Select at least one image.";
+    if (!input.files.length) return status.textContent = "Select images first.";
 
     uploadBtn.disabled = true;
     uploadBtn.textContent = "PROCESSING...";
@@ -93,35 +94,50 @@
     for (const file of input.files) formData.append('images', file);
 
     try {
-      const res = await fetch('/upload', { method: 'POST', body: formData });
+      const res = await fetch('http://127.0.0.1:8000/upload', { method: 'POST', body: formData });
       const data = await res.json();
       const results = data.results || [];
 
       if (results.length > 0) {
         const half = Math.ceil(results.length / 2);
-        const renderRows = (items) => items.map(item => `
-          <tr>
-            <td><strong>${item.name || 'Unknown'}</strong></td>
-            <td>${item.schedule_count ?? 0}</td>
-            <td><span class="badge-hours">${item.hours ?? 0}</span></td>
-          </tr>
-        `).join('');
+        const rate = parseFloat(multiplierInput.value) || 0;
+
+        const renderRows = (items) => items.map(item => {
+          const hours = item.hours || 0;
+          const salary = (hours * rate).toFixed(2);
+          return `
+            <tr>
+              <td><strong>${item.name || 'Unknown'}</strong></td>
+              <td>${item.schedule_count ?? 0}</td>
+              <td><span class="badge-hours">${hours}</span></td>
+              <td data-salary>₱${salary}</td>
+            </tr>
+          `;
+        }).join('');
 
         document.querySelector('#tableLeft tbody').innerHTML = renderRows(results.slice(0, half));
         document.querySelector('#tableRight tbody').innerHTML = renderRows(results.slice(half));
 
         uploadCard.classList.add('hidden');
         resultsWrapper.classList.remove('hidden');
-        status.textContent = "";
       } else {
-        status.textContent = "No schedules found in these images.";
+        status.textContent = "No data extracted.";
       }
     } catch (e) {
-      status.textContent = "Backend connection error.";
+      status.textContent = "Server Error.";
     } finally {
       uploadBtn.disabled = false;
       uploadBtn.textContent = "ANALYZE FILES";
     }
+  });
+
+  // Dynamic salary update when user changes rate
+  multiplierInput.addEventListener("input", () => {
+    const rate = parseFloat(multiplierInput.value) || 0;
+    document.querySelectorAll("#resultsWrapper tbody tr").forEach(row => {
+      const hours = parseFloat(row.querySelector(".badge-hours").textContent) || 0;
+      row.querySelector("td[data-salary]").textContent = `₱${(hours * rate).toFixed(2)}`;
+    });
   });
 
   function resetUI() {

@@ -7,7 +7,11 @@ import re
 from collections import defaultdict
 
 
+pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+
+
 app = FastAPI()
+
 
 app.add_middleware(
     CORSMiddleware,
